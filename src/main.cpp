@@ -1,8 +1,9 @@
 #include <Arduino.h>
 #include <PPM.hpp>
+#include <iBUStelemetry.h>
 
-PPM reciever;
 
+int iBUS_pin = 4;
 int throttle_pin = 3;
 
 /*
@@ -12,15 +13,18 @@ Mappings are as follows:
 
 */
 
+PPM reciever;
+iBUStelemetry telemetry(iBUS_pin);
+
 void applyThrottle() {
 
-  if (reciever.getValue(7) > 0 && reciever.getValue(7) < 50) {
+  if (reciever.getValue(7) == 0 ) {
 
-    analogWrite( throttle_pin, (reciever.getValue(1)*.25) );
+    analogWrite( throttle_pin, (reciever.getValue(1)*.25) ); //25% power
 
   }
 
-  else if (reciever.getValue(7) >= 50) {
+  else if (reciever.getValue(7) < 0) {
 
     int variableThrottle = (reciever.getValue(1) * ( map(reciever.getValue(8), 0, 255, 0, 1) ));
     analogWrite( throttle_pin, variableThrottle );
@@ -35,14 +39,22 @@ void applyThrottle() {
 
 }
 
+void writeSensorData() {
+  //Do some stuff to figure out telemetry
+  telemetry.setSensorMeasurement(1, 1.2);
+
+}
+
 void setup() {
   // put your setup code here, to run once:
   reciever.begin(2,1);
+  telemetry.begin(115200);
+  telemetry.addSensor(0);
 
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
   applyThrottle();
-
+  writeSensorData();
 }
