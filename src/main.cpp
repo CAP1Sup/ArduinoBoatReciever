@@ -9,6 +9,12 @@ int throttle_pin = 3;
 
 bool Serial_output = true;
 
+const int numReadings = 3;
+ 
+int readings[numReadings];      // the readings from the analog input
+int readIndex = 0;              // the index of the current reading
+int total = 0;                  // the running total
+int average = 0;                // the average
 
 /*
 Mappings are as follows:
@@ -22,11 +28,25 @@ Mappings are as follows:
 
 void applyThrottle() {
   float ch1 = map(pulseIn(2, HIGH), 0, 2000, 0, 255);
-  float lastCh1 = 0;
-  int resetCounts;
   float ch5 = map(pulseIn(3, HIGH), 0, 2000, 0, 255);
-
-  ch1 = (ch1 + lastCh1) / 2;
+  
+    // subtract the last reading:
+  total = total - readings[readIndex];
+  // read from the sensor:
+  readings[readIndex] = map(pulseIn(2, HIGH), 0, 2000, 0, 255);
+  // add the reading to the total:
+  total = total + readings[readIndex];
+  // advance to the next position in the array:
+  readIndex = readIndex + 1;
+ 
+  // if we're at the end of the array...
+  if (readIndex >= numReadings) {
+    // ...wrap around to the beginning:
+    readIndex = 0;
+  }
+ 
+  // calculate the average:
+  ch1 = map( (total / numReadings) , 125, 255 , 0 , 255);
 
   if (ch5 == 255) {
 
@@ -48,8 +68,8 @@ void applyThrottle() {
 
   if (Serial_output) {
     Serial.print(ch1);
-    Serial.print(", ");
-    Serial.print(ch5);
+    //Serial.print(", ");
+    //Serial.print(ch5);
     Serial.println();
   }
 
@@ -103,6 +123,9 @@ void setup() {
   //telemetry.addSensor(0);
   if (Serial_output) {
     Serial.begin(115200);
+  }
+  for (int thisReading = 0; thisReading < numReadings; thisReading++) {
+    readings[thisReading] = 0;
   }
 }
 
