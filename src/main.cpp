@@ -5,9 +5,11 @@
 
 
 int iBUS_pin = 4;
-int throttle_pin = 3;
+int throttle_pin = 12;
 
 bool Serial_output = true;
+
+int threshold = 15;
 
 const int numReadings = 3;
  
@@ -15,6 +17,8 @@ int readings[numReadings];      // the readings from the analog input
 int readIndex = 0;              // the index of the current reading
 int total = 0;                  // the running total
 int average = 0;                // the average
+
+float ch1 = 0;
 
 /*
 Mappings are as follows:
@@ -27,13 +31,13 @@ Mappings are as follows:
 //iBUStelemetry telemetry(iBUS_pin);
 
 void applyThrottle() {
-  float ch1 = map(pulseIn(2, HIGH), 0, 2000, 0, 255);
-  float ch5 = map(pulseIn(3, HIGH), 0, 2000, 0, 255);
+  
+  
   
     // subtract the last reading:
   total = total - readings[readIndex];
   // read from the sensor:
-  readings[readIndex] = map(pulseIn(2, HIGH), 0, 2000, 0, 255);
+  readings[readIndex] = map(pulseIn(2, HIGH), 0, 2000, 0, 510) - 249;
   // add the reading to the total:
   total = total + readings[readIndex];
   // advance to the next position in the array:
@@ -45,29 +49,39 @@ void applyThrottle() {
     readIndex = 0;
   }
  
-  // calculate the average:
-  ch1 = map( (total / numReadings) , 125, 255 , 0 , 255);
+  ch1 = ( total / numReadings ) - 1;
+  
+  float ch5 = map(pulseIn(3, HIGH), 0, 2000, 0, 255); // 1: 126 2: 189-190 3: 253-254
 
-  if (ch5 == 255) {
+  if (ch5 < 180) { //1st position
 
-    analogWrite( throttle_pin , (ch1 * .25) ); //25% power
+    if (ch1 > threshold) {
+      analogWrite( throttle_pin , ch1 ); //100% power
+    }
+    Serial.print(ch1);
 
   }
 
-  else if (ch5 == 0) {
+  else if (ch5 == 189 || ch5 == 190) { //2nd position
 
-    analogWrite( throttle_pin , (ch1 * .50) ); //50% power
+    if ( (ch1 * .50) > threshold) {
+      analogWrite( throttle_pin , (ch1 * .50) ); //50% power
+    }
+    Serial.print(ch1 * .50);
     
   }
 
-  else {
+  else { //3rd position
 
-    analogWrite( throttle_pin , ch1 ); //100% power
+    if ( (ch1 * .25) > threshold) {
+      analogWrite( throttle_pin , ch1 * .25 ); //25% power
+    }
+    Serial.print(ch1 * .25);
 
   }
 
   if (Serial_output) {
-    Serial.print(ch1);
+    //Serial.print(ch1);
     //Serial.print(", ");
     //Serial.print(ch5);
     Serial.println();
@@ -127,6 +141,7 @@ void setup() {
   for (int thisReading = 0; thisReading < numReadings; thisReading++) {
     readings[thisReading] = 0;
   }
+  ch1 = map(pulseIn(2, LOW), 0, 2000, 0, 510) - 250;
 }
 
 void loop() {
