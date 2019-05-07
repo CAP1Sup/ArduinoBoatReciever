@@ -1,7 +1,8 @@
 
 #include <Arduino.h>
 #include <PPM.hpp>
-#include <iBUStelemetry.h>
+//#include <iBUStelemetry.h>
+#include <Math.cpp>
 
 
 int iBUS_pin = 4;
@@ -10,14 +11,14 @@ int throttle_pin = 12;
 bool Serial_output = true;
 
 int threshold = 15;
-
+/*
 const int numReadings = 3;
  
 int readings[numReadings];      // the readings from the analog input
 int readIndex = 0;              // the index of the current reading
 int total = 0;                  // the running total
 int average = 0;                // the average
-
+*/
 float ch1 = 0;
 
 /*
@@ -26,14 +27,14 @@ Mappings are as follows:
 6 - 2nd potentiometer - For hydrofoil adjustment
 
 */
-
+Math math;
 //PPM reciever;
 //iBUStelemetry telemetry(iBUS_pin);
 
 void applyThrottle() {
   
   
-  
+  /*
     // subtract the last reading:
   total = total - readings[readIndex];
   // read from the sensor:
@@ -48,8 +49,9 @@ void applyThrottle() {
     // ...wrap around to the beginning:
     readIndex = 0;
   }
- 
-  ch1 = ( total / numReadings ) - 1;
+  */
+  
+  ch1 = ( math.average ( map ( pulseIn ( 2, HIGH ), 0, 2000, 0, 510 ) - 249 ) ) - 1;
   
   float ch5 = map(pulseIn(3, HIGH), 0, 2000, 0, 255); // 1: 126 2: 189-190 3: 253-254
 
@@ -138,10 +140,14 @@ void setup() {
   if (Serial_output) {
     Serial.begin(115200);
   }
+  /*
+  //Initialize averaging stuff
   for (int thisReading = 0; thisReading < numReadings; thisReading++) {
     readings[thisReading] = 0;
   }
-  ch1 = map(pulseIn(2, LOW), 0, 2000, 0, 510) - 250;
+  */
+  ch1 = map(pulseIn(2, HIGH), 0, 2000, 0, 510) - 250;
+  math.initializeAverages(3);
 }
 
 void loop() {
