@@ -1,157 +1,105 @@
-
+//Library definitions
 #include <Arduino.h>
-#include <PPM.hpp>
-//#include <iBUStelemetry.h>
-#include <Math.cpp>
+#include <Ramp.h>
 
-
-int iBUS_pin = 4;
-int throttle_pin = 12;
-
+//Use the debugging mode
 bool Serial_output = true;
+//Channel pin defintions
+int ch1_pin = 4;
+int ch3_pin = 5;
+int ch5_pin = 6;
+int ch6_pin = 7;
+//Motor pin defintions
+int L_motor_pin = 2;
+int R_motor_pin = 3;
+//Initialize variables for channel values
+float ch1 = 0; //Steering
+float ch3 = 0; //Throttle
+float ch5 = 0; //3-way switch
+float ch6 = 0; //VrB
+//Initialize variables to store motor values in after steering calculations
+float L_motor_value = 0;
+float R_motor_value = 0;
+//Create instances of the RAMP library
+rampFloat L_motor_ramp;
+rampFloat R_motor_ramp;
 
-int threshold = 15;
-/*
-const int numReadings = 3;
- 
-int readings[numReadings];      // the readings from the analog input
-int readIndex = 0;              // the index of the current reading
-int total = 0;                  // the running total
-int average = 0;                // the average
-*/
-float ch1 = 0;
 
-/*
-Mappings are as follows:
-5 - ON/OFF switch - Potentiometer power adjustment | 25% power | Full power
-6 - 2nd potentiometer - For hydrofoil adjustment
 
-*/
-Math math;
-//PPM reciever;
-//iBUStelemetry telemetry(iBUS_pin);
+void calculateThrottle() {
 
-void applyThrottle() {
-  
-  
-  /*
-    // subtract the last reading:
-  total = total - readings[readIndex];
-  // read from the sensor:
-  readings[readIndex] = map(pulseIn(2, HIGH), 0, 2000, 0, 510) - 249;
-  // add the reading to the total:
-  total = total + readings[readIndex];
-  // advance to the next position in the array:
-  readIndex = readIndex + 1;
- 
-  // if we're at the end of the array...
-  if (readIndex >= numReadings) {
-    // ...wrap around to the beginning:
-    readIndex = 0;
-  }
-  */
-  
-  ch1 = ( math.average ( map ( pulseIn ( 2, HIGH ), 0, 2000, 0, 510 ) - 249 ) ) - 1;
-  
-  float ch5 = map(pulseIn(3, HIGH), 0, 2000, 0, 255); // 1: 126 2: 189-190 3: 253-254
+  ch1 = map ( pulseIn( ch1_pin, HIGH), 993, 1988, -128, 128 ) + 2; 
+  ch3 = map ( pulseIn( ch3_pin, HIGH), 997, 1990, 0, 255 );
+  ch5 = int ( map ( pulseIn( ch5_pin, HIGH), 500, 1500, 0, 2 )); 
+  ch6 = map ( pulseIn( ch6_pin, HIGH), 994, 1988, 0, 1000 );
 
-  if (ch5 < 180) { //1st position
 
-    if (ch1 > threshold) {
-      analogWrite( throttle_pin , ch1 ); //100% power
+  if (ch1 < 2 || ch1 > -2) { //Steering is moved
+    //Steering Calculations
+    if ( ch1 > 0 ) { //Stick moved to the right, therefore boat should turn right. This is done by slowing down the right motor.
+      L_motor_value = ch3;
+      R_motor_value = ch3 - abs( ch1 );
+      if ( R_motor_value < 0 ) {
+        R_motor_value = 0;
+      }
     }
-    Serial.print(ch1);
-
-  }
-
-  else if (ch5 == 189 || ch5 == 190) { //2nd position
-
-    if ( (ch1 * .50) > threshold) {
-      analogWrite( throttle_pin , (ch1 * .50) ); //50% power
+    else {  //Stick must have moved to the left, therefore boat should turn left. This is done by slowing down the left motor.
+      L_motor_value = ch3 - abs( ch1 );
+      if ( L_motor_value < 0 ) {
+        L_motor_value = 0;
+      }
+      R_motor_value = ch3;
     }
-    Serial.print(ch1 * .50);
     
   }
-
-  else { //3rd position
-
-    if ( (ch1 * .25) > threshold) {
-      analogWrite( throttle_pin , ch1 * .25 ); //25% power
-    }
-    Serial.print(ch1 * .25);
-
+  else { //Don't apply steering
+    L_motor_value = ch3;
+    R_motor_value = ch3;
   }
 
-  if (Serial_output) {
-    //Serial.print(ch1);
-    //Serial.print(", ");
-    //Serial.print(ch5);
-    Serial.println();
+
+  if (ch5 == 0) { //No ramping applied
+    L_motor_ramp.go( (L_motor_value), ch6, NONE );
+    R_motor_ramp.go( (R_motor_value), ch6, NONE );
   }
 
+  else if (ch5 == 1) { //Linear ramp applied
+    L_motor_ramp.go( (L_motor_value), ch6, LINEAR );
+    R_motor_ramp.go( (R_motor_value), ch6, LINEAR );
+  }
+
+  else if (ch5 == 2) { //Quadratic ramp applied
+    L_motor_ramp.go( (L_motor_value), ch6, QUADRATIC_OUT );
+    R_motor_ramp.go( (R_motor_value), ch6, QUADRATIC_OUT );
+  }
+
+  L_motor_ramp.update();
+  R_motor_ramp.update();
 }
-
-
-
-
-
-
-
-
-/*
-void applyThrottle() {
-
-  if (reciever.getValue(7) == 0 ) {
-
-    analogWrite( throttle_pin, (reciever.getValue(1)*.25) ); //25% power
-
-  }
-
-  else if (reciever.getValue(7) < 0) {
-
-    int variableThrottle = (reciever.getValue(1) * ( map(reciever.getValue(8), 0, 255, 0, 1) ));
-    analogWrite( throttle_pin, variableThrottle );
-    
-  }
-
-  else {
-
-    analogWrite( throttle_pin, reciever.getValue(1) );
-
-  }
-
-}
-*/
-
-
-/*
-void writeSensorData() {
-  //Do some stuff to figure out telemetry
-  telemetry.setSensorMeasurement(1, 1.2);
-
-}
-*/
 
 void setup() {
   // put your setup code here, to run once:
-  //reciever.begin(2,1);
-  //telemetry.begin(115200);
-  //telemetry.addSensor(0);
+  //Start Serial connection if needed
   if (Serial_output) {
-    Serial.begin(115200);
+    Serial.begin(9600);
   }
-  /*
-  //Initialize averaging stuff
-  for (int thisReading = 0; thisReading < numReadings; thisReading++) {
-    readings[thisReading] = 0;
-  }
-  */
-  ch1 = map(pulseIn(2, HIGH), 0, 2000, 0, 510) - 250;
-  math.initializeAverages(3);
+  //Set up pins as inputs
+  pinMode( ch1_pin, INPUT );
+  pinMode( ch3_pin, INPUT );
+  pinMode( ch5_pin, INPUT );
+  pinMode( ch6_pin, INPUT );
+
 }
+
 
 void loop() {
   // put your main code here, to run repeatedly:
-  applyThrottle();
+  calculateThrottle();
+  //Write out Serial data if enabled
+  if (Serial_output) {
+    Serial.print( L_motor_value );
+    Serial.print(", ");
+    Serial.print( R_motor_value );
+    Serial.println();
+  }
 }
-
