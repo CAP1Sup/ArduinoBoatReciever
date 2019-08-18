@@ -3,10 +3,10 @@
 //#include <Ramp.h>
 
 //Use the debugging mode
-#define Serial_output
+//#define Serial_output
 //Motor pin defintions
-int L_motor_pin = 5;
-int R_motor_pin = 3;
+int L_motor_pin = 3;
+int R_motor_pin = 5;
 //Channel pin defintions
 int ch1_pin = 4;
 int ch3_pin = 2;
@@ -130,7 +130,7 @@ void loop() {
   // put your main code here, to run repeatedly:
   calculateThrottle();
   //Set readVcc variable
-  updateReadVcc();
+  //updateReadVcc();
   //Set pins to the values calculated if they are above the threshold
   //if ( L_motor_value > 2 ) {
   analogWrite( L_motor_pin, L_motor_value );
@@ -138,14 +138,14 @@ void loop() {
   //if ( R_motor_value > 2 ) {
   analogWrite( R_motor_pin, R_motor_value );
   //}
-  analogWrite( reciever_pin, readVcc_value );
+  //analogWrite( reciever_pin, readVcc_value );
   //Write out Serial data if enabled
   #ifdef Serial_output
     Serial.print( L_motor_value );
     Serial.print(", ");
     Serial.print( R_motor_value );
-    Serial.print(", ");
-    Serial.print( readVcc_value );
+    //Serial.print(", ");
+    //Serial.print( readVcc_value );
     Serial.println();
   #endif
 }
